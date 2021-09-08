@@ -15,23 +15,25 @@
 #' @examples
 #' \dontrun{
 #' auto_seq_download()
-#' auto_seq_download(BOLD_database = 1,NCBI_database = 0)
-#' auto_seq_download(BOLD_database = 0,NCBI_database = 1)
+#' auto_seq_download(BOLD_database = TRUE, NCBI_database = FALSE)
+#' auto_seq_download(BOLD_database = FALSE, NCBI_database = TRUE)
 #' }
 #'
-#' @param BOLD_database 1 is to include, 0 is to exclude; default 1
-#' @param NCBI_database 1 is to include, 0 is to exclude; default 1
-#' @param search_str N uses the default string, anything other than N then that string will be used for the GenBank search; default N.
-#' The Default String is: (genus[ORGN] OR genus[ALL]) NOT (shotgun[ALL] OR genome[ALL] OR assembled[ALL] OR microsatellite[ALL])
+#' @param BOLD_database TRUE is to include, FALSE is to exclude; default TRUE
+#' @param NCBI_database TRUE is to include, FALSE is to exclude; default TRUE
+#' @param search_str NULL uses the default string, anything other than NULL then that string will be used for the GenBank search; default NULL.
+#' The Default String is: (genus[ORGN]) NOT (shotgun[ALL] OR genome[ALL] OR assembled[ALL] OR microsatellite[ALL])
+#' @param input_file NULL prompts the user to indicate the location of the input file through point and click prompts, anything other than NULL then the string supplied will be used for the location; default NULL
+#' @param output_file NULL prompts the user to indicate the location of the output file through point and click prompts, anything other than NULL then the string supplied will be used for the location; default NULL
 #'
 #' @returns Outputs: One main folder containing three other folders.
-#' Main folder - Seq_auto_dl_######_MMM_DD
+#' Main folder - Seq_auto_dl_TTTTTT_MMM_DD
 #' Three subfolders:
 #' 1. BOLD - Contains a file for every genus downloaded with the raw data from the BOLD system.
 #' 2. NCBI - Contains a file for every genus downloaded with the raw data from GenBank.
 #' 3. Total_tables - Contains files for the running of the function which include...
 #' A_Summary.txt - This file contains information about the downloads.
-#' A file with a single table containing the accumulated data for all genera searched.
+#' A_Total_Table.tsv – A file with a single table containing the accumulated data for all genera searched.
 #'
 #' @references
 #' <https://github.com/rgyoung6/MACER>
@@ -50,15 +52,33 @@
 #'
 
 ############################################ MAIN FOR FOR BOLD/NCBI DOWNLOAD ###################################################################################
-auto_seq_download <- function(BOLD_database=1, NCBI_database=1, search_str="N")
+auto_seq_download <- function(BOLD_database=TRUE, NCBI_database=TRUE, search_str= NULL, input_file= NULL, output_file=NULL)
 {
+
+  #The following if checks to see if the user inputted a file location when calling the program if not then prompts the user to select
+  if (is.null(input_file)){
 
   # prompting to choose the file of interest with the tab delimited info
   n <- substr(readline(prompt="Choose the file with the genera of interest to download. Hit enter key to continue..."),1,1)
   genera_list<-file.choose()
-  Work_loc <- dirname(genera_list)
-  print(genera_list)
 
+  } else{
+
+    genera_list=input_file
+
+  }
+
+  #assign the output if the user didn't supply an output location
+  if (is.null(output_file)){
+
+    Work_loc <- dirname(genera_list)
+    print(genera_list)
+
+  }else{
+
+    Work_loc=output_file
+
+  }
   # load in the data file in to the data for the lines
   genera_list<-read.table(genera_list,header=F,sep="\t",dec=".", fill = TRUE )
   genera_list<-unique(genera_list$V1)
@@ -83,7 +103,7 @@ auto_seq_download <- function(BOLD_database=1, NCBI_database=1, search_str="N")
   total_data_table<- data.frame(uniqueID=character(), DB=character(), ID=character(), Accession=character(),Genus_Species=character(), Genus=character(),Species=character(),BIN_OTU=character(),Gene=character(),Sequence=character(),Flags=character(), stringsAsFactors=FALSE)
 
   #Initialize the output file for all of the molecular markers
-  write.table(total_data_table ,file=paste0(table_folder,"/A_Total_Table.dat"), na="", row.names=FALSE, col.names=TRUE, quote = FALSE,sep="\t", append=FALSE)
+  write.table(total_data_table ,file=paste0(table_folder,"/A_Total_Table.tsv"), na="", row.names=FALSE, col.names=TRUE, quote = FALSE,sep="\t", append=FALSE)
 
   #Initializing the file for output to the summary log file
   summary_log<-NULL
@@ -110,7 +130,7 @@ auto_seq_download <- function(BOLD_database=1, NCBI_database=1, search_str="N")
 
     #*****************************downloading from BOLD, attempt at least 3 times*******************************************************************************#
 
-    if (BOLD_database==1){
+    if (BOLD_database==TRUE){
       #initialize the attempt variables, set the error occurrence flag to false and initialize an empty data frame
       attempt<- 1
       BOLD_data_table <- data.frame(matrix(nrow=0, ncol=2))
@@ -180,12 +200,12 @@ auto_seq_download <- function(BOLD_database=1, NCBI_database=1, search_str="N")
     #*****************************downloading from NCBI, attempt at least 3 times************************************************************************************************#
 
 
-    if (NCBI_database==1){
+    if (NCBI_database==TRUE){
       #This is the section where I will build the search string for NCBI. If it is equal to the preset value then build it with the if, if it isn't then use it as the user inputted value
-      if(search_str=="N"){
+      if(is.null(search_str)){
 
         #This line builds the search string if no alternative was entered in as an attribute
-        ncbi_search_str<-paste0("(", genera_list[genera_list_loop_counter],"[ORGN] OR ", genera_list[genera_list_loop_counter],"[ALL]) NOT (shotgun[ALL] OR genome[ALL] OR assembled[ALL] OR microsatellite[ALL])")
+        ncbi_search_str<-paste0("(", genera_list[genera_list_loop_counter],"[ORGN]) NOT (shotgun[ALL] OR genome[ALL] OR assembled[ALL] OR microsatellite[ALL])")
 
       }else{
 
@@ -275,7 +295,7 @@ auto_seq_download <- function(BOLD_database=1, NCBI_database=1, search_str="N")
     #file to summarize and just have a log file without results
 
     # This if is only adding this data to the total output file if there was data downloaded
-    if(nrow(total_data_table)>0){
+    if(!is.na(nrow(total_data_table)) && nrow(total_data_table)>0){
 
       #Need to make a summary log file here.
       summary_log<-c(summary_log,paste0("Number of records - ", nrow(total_data_table)))
@@ -293,7 +313,7 @@ auto_seq_download <- function(BOLD_database=1, NCBI_database=1, search_str="N")
       total_data_table= total_data_table[-1,]
 
       #Initialize the output file for all of the molecular markers
-      write.table(total_data_table ,file=paste0(table_folder,"/A_Total_Table.dat"), na="", row.names=FALSE, col.names=FALSE, quote = FALSE,sep="\t", append=TRUE)
+      write.table(total_data_table ,file=paste0(table_folder,"/A_Total_Table.tsv"), na="", row.names=FALSE, col.names=FALSE, quote = FALSE,sep="\t", append=TRUE)
 
     }#Closing off the if statement checking to see if there was data for this taxa
 
